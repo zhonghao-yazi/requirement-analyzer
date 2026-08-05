@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'dev-logs/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ===== Job 1: 代码检查 =====
+  lint:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: requirement-analyzer/package-lock.json
+
+      - name: Install frontend dependencies
+        run: cd requirement-analyzer && npm ci
+
+      - name: Run Oxlint
+        run: cd requirement-analyzer && npm run lint
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile backend/main.py
+          python -m py_compile backend/routers/analyze.py
+          python -m py_compile backend/services/ai_analyzer.py
+          python -m py_compile backend/services/file_parser.py
+          python -m py_compile backend/schemas/models.py
+          python -m py_compile backend/utils/prompts.py
+
+  # ===== Job 2: 构建 + E2E 测试 =====
+  test:
+    name: Build & E2E Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: requirement-analyzer/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install frontend dependencies
+        run: cd requirement-analyzer && npm ci
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('requirement-analyzer/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd requirement-analyzer && npx playwright install chromium --with-deps
+
+      - name: Run Playwright E2E tests
+        run: cd requirement-analyzer && npx playwright test
+        env:
+          CI: 'true'
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Upload test artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failures
+          path: |
+            requirement-analyzer/test-results/
+            requirement-analyzer/playwright-report/
+          retention-days: 7
+
+      - name: Upload test report JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-json
+          path: requirement-analyzer/test-reports/result.json
+          retention-days: 30

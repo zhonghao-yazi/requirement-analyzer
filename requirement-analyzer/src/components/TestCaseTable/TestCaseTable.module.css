@@ -1,0 +1,544 @@
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== 标题栏 ===== */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.totalBadge {
+  font-size: 11px;
+  background: var(--color-primary-lighter);
+  color: var(--color-primary-dark);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* ===== 筛选 Tab ===== */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  color: var(--tab-color);
+  border-color: var(--tab-color);
+}
+
+.tabActive {
+  color: var(--tab-color);
+  background: var(--tab-bg);
+  border-color: var(--tab-color);
+  font-weight: 600;
+}
+
+.tabCount {
+  font-size: 11px;
+  background: var(--color-primary-lighter);
+  color: var(--color-primary-dark);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+/* ===== 表格容器 ===== */
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+/* ===== 表格 ===== */
+.table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table thead th {
+  background: var(--color-primary-lighter);
+  color: var(--color-primary-dark);
+  font-weight: 700;
+  font-size: 12px;
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 2px solid var(--color-primary-light);
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg);
+}
+
+/* 列宽 */
+.colId {
+  width: 40px;
+  text-align: center !important;
+}
+
+.colCategory {
+  width: 80px;
+}
+
+.colTitle {
+  width: 160px;
+  font-weight: 600;
+}
+
+.colPre {
+  width: 160px;
+}
+
+.colSteps {
+  width: 200px;
+}
+
+.colExpected {
+  width: 220px;
+}
+
+/* ===== 分类徽章 ===== */
+.categoryBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* ===== 空/无结果 ===== */
+.empty,
+.noResult {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--color-text-light);
+  font-size: 14px;
+}
+
+.noResult {
+  padding: var(--space-lg);
+}
+
+/* ===== F21: 单元格编辑 ===== */
+.cellContent {
+  display: block;
+  min-height: 18px;
+  cursor: default;
+}
+
+.editInput,
+.editTextarea {
+  width: 100%;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.6;
+  padding: 4px 6px;
+  border: 2px solid var(--color-primary);
+  border-radius: 4px;
+  outline: none;
+  background: #fff;
+  color: var(--color-text);
+  resize: vertical;
+}
+
+.editTextarea {
+  min-height: 64px;
+}
+
+/* ===== F22: 添加按钮 ===== */
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--color-primary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: var(--space-sm);
+}
+
+.addBtn:hover {
+  background: var(--color-primary-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== F23: 操作列 ===== */
+.colAction {
+  width: 44px;
+  text-align: center !important;
+}
+
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-light);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.deleteBtn:hover {
+  background: #fef2f2;
+  color: var(--color-danger);
+}
+
+/* ===== F22+F23: 弹窗 ===== */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  width: 540px;
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: slideUp 0.2s ease;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modalHeader h3 {
+  font-size: 17px;
+  color: var(--color-primary-dark);
+}
+
+.modalClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.modalClose:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.modalBody {
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.required {
+  color: var(--color-danger);
+}
+
+.fieldInput,
+.fieldSelect,
+.fieldTextarea {
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: border-color 0.15s;
+}
+
+.fieldInput:focus,
+.fieldSelect:focus,
+.fieldTextarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-lighter);
+}
+
+.fieldTextarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.modalCancel {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.modalCancel:hover {
+  background: var(--color-bg);
+}
+
+.modalSubmit {
+  padding: 8px 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.modalSubmit:hover {
+  background: var(--color-primary-dark);
+}
+
+.modalSubmit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== F23: 确认弹窗 ===== */
+.confirmDialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-xl);
+  width: 400px;
+  max-width: 90vw;
+  text-align: center;
+  animation: slideUp 0.2s ease;
+}
+
+.confirmText {
+  font-size: 15px;
+  color: var(--color-text);
+  margin-bottom: var(--space-sm);
+}
+
+.confirmSub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: var(--space-sm);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-lg);
+  word-break: break-all;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-md);
+}
+
+.confirmDelete {
+  padding: 8px 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmDelete:hover {
+  background: #dc2626;
+}
+
+/* ===== 分页控件 ===== */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) 0 0;
+  flex-wrap: wrap;
+}
+
+.pageInfo {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.pageControls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pageBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.pageBtn:hover:not(:disabled) {
+  border-color: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.pageBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pageNum {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.pageNum:hover {
+  border-color: var(--color-border);
+  color: var(--color-primary);
+}
+
+.pageNumActive {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.pageNumActive:hover {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+.pageEllipsis {
+  width: 32px;
+  text-align: center;
+  color: var(--color-text-light);
+  font-size: 13px;
+  user-select: none;
+}
+
+.pageSizeSelect {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  cursor: pointer;
+  outline: none;
+}
+
+.pageSizeSelect:focus {
+  border-color: var(--color-primary-light);
+}
+
+/* ===== 动画 ===== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
