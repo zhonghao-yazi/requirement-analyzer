@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { ClipboardList, Filter, Plus, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { updateTestCase, createTestCase, deleteTestCase } from '../../services/testcaseService'
 import styles from './TestCaseTable.module.css'
 
 /** 分类配置 */
@@ -14,7 +15,7 @@ const CATEGORIES = [
 const EDITABLE_COLS = ['title', 'preconditions', 'steps', 'expected']
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
-export default function TestCaseTable({ testCases, onChange }) {
+export default function TestCaseTable({ testCases, onChange, projectId }) {
   const [activeCategory, setActiveCategory] = useState('全部')
   // ---- F21: 单元格编辑状态 ----
   const [editingCell, setEditingCell] = useState(null) // { id, field }
@@ -53,15 +54,25 @@ export default function TestCaseTable({ testCases, onChange }) {
   }, [])
 
   // ---- F21: 保存编辑 ----
-  const saveEdit = useCallback(() => {
+  const saveEdit = useCallback(async () => {
     if (!editingCell) return
-    const updated = localCases.map((tc) =>
-      tc.id === editingCell.id ? { ...tc, [editingCell.field]: editValue } : tc
+    const field = editingCell.field
+    const updatedCases = localCases.map((tc) =>
+      tc.id === editingCell.id ? { ...tc, [field]: editValue } : tc
     )
-    syncUp(updated)
+    syncUp(updatedCases)
     setEditingCell(null)
     setEditValue('')
-  }, [editingCell, editValue, localCases, syncUp])
+
+    // 持久化到服务端
+    if (projectId && editingCell.id > 0) {
+      try {
+        await updateTestCase(editingCell.id, { [field]: editValue })
+      } catch (err) {
+        console.error('保存用例失败:', err)
+      }
+    }
+  }, [editingCell, editValue, localCases, syncUp, projectId])
 
   // ---- F21: 取消编辑 ----
   const cancelEdit = useCallback(() => {
@@ -80,25 +91,47 @@ export default function TestCaseTable({ testCases, onChange }) {
   }, [saveEdit, cancelEdit])
 
   // ---- F22: 新增用例 ----
-  const handleAdd = useCallback(() => {
+  const handleAdd = useCallback(async () => {
     if (!newCase.title.trim()) return
-    const maxId = localCases.reduce((max, tc) => Math.max(max, tc.id), 0)
-    const caseToAdd = { ...newCase, id: maxId + 1 }
-    const updated = [...localCases, caseToAdd]
-    syncUp(updated)
+
+    if (projectId) {
+      try {
+        const created = await createTestCase(projectId, {
+          category: newCase.category,
+          priority: 'P2',
+          title: newCase.title.trim(),
+          preconditions: newCase.preconditions,
+          steps: newCase.steps,
+          expected: newCase.expected,
+        })
+        syncUp([...localCases, created])
+      } catch (err) {
+        console.error('创建用例失败:', err)
+      }
+    } else {
+      const maxId = localCases.reduce((max, tc) => Math.max(max, tc.id), 0)
+      syncUp([...localCases, { ...newCase, id: maxId + 1, priority: 'P2', status: 'draft' }])
+    }
+
     setShowAddModal(false)
     setNewCase({ category: '核心流程', title: '', preconditions: '', steps: '', expected: '' })
-  }, [newCase, localCases, syncUp])
+  }, [newCase, localCases, syncUp, projectId])
 
   // ---- F23: 删除用例 ----
-  const confirmDelete = useCallback(() => {
+  const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return
-    const updated = localCases
-      .filter((tc) => tc.id !== deleteTarget.id)
-      .map((tc, i) => ({ ...tc, id: i + 1 })) // 重新编号
+    const updated = localCases.filter((tc) => tc.id !== deleteTarget.id)
     syncUp(updated)
     setDeleteTarget(null)
-  }, [deleteTarget, localCases, syncUp])
+
+    if (projectId && deleteTarget.id > 0) {
+      try {
+        await deleteTestCase(deleteTarget.id)
+      } catch (err) {
+        console.error('删除用例失败:', err)
+      }
+    }
+  }, [deleteTarget, localCases, syncUp, projectId])
 
   // ---- 筛选逻辑 ----
   const filtered = useMemo(() => {
@@ -168,18 +201,7 @@ export default function TestCaseTable({ testCases, onChange }) {
     )
   }
 
-  // ---- 空状态 ----
-  if (!localCases || localCases.length === 0) {
-    return (
-      <div className={styles.card}>
-        <div className={styles.heading}>
-          <ClipboardList size={20} color="#7e57c2" />
-          <h2 className={styles.title}>测试用例</h2>
-        </div>
-        <div className={styles.empty}>暂无测试用例数据</div>
-      </div>
-    )
-  }
+  const isEmpty = !localCases || localCases.length === 0
 
   return (
     <div className={styles.card}>
@@ -187,7 +209,7 @@ export default function TestCaseTable({ testCases, onChange }) {
       <div className={styles.heading}>
         <ClipboardList size={20} color="#7e57c2" />
         <h2 className={styles.title}>测试用例</h2>
-        <span className={styles.totalBadge}>{localCases.length} 条</span>
+        <span className={styles.totalBadge}>{localCases?.length || 0} 条</span>
         {/* ---- F22: 添加按钮 ---- */}
         <button className={styles.addBtn} onClick={() => setShowAddModal(true)} title="添加用例">
           <Plus size={14} />
@@ -195,109 +217,115 @@ export default function TestCaseTable({ testCases, onChange }) {
         </button>
       </div>
 
-      {/* 分类筛选 Tab */}
-      <div className={styles.tabs}>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            className={`${styles.tab} ${activeCategory === cat.key ? styles.tabActive : ''}`}
-            style={{ '--tab-color': cat.color, '--tab-bg': cat.color + '18' }}
-            onClick={() => { setActiveCategory(cat.key); setCurrentPage(1) }}
-          >
-            <Filter size={13} />
-            {cat.label}
-            {counts[cat.key] > 0 && <span className={styles.tabCount}>{counts[cat.key]}</span>}
-          </button>
-        ))}
-      </div>
-
-      {/* 表格 */}
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th className={styles.colId}>#</th>
-              <th className={styles.colCategory}>分类</th>
-              <th className={styles.colTitle}>测试标题</th>
-              <th className={styles.colPre}>前置条件</th>
-              <th className={styles.colSteps}>测试步骤</th>
-              <th className={styles.colExpected}>预期结果</th>
-              {/* ---- F23: 操作列 ---- */}
-              <th className={styles.colAction}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {paged.map((tc) => (
-              <tr key={tc.id}>
-                <td className={styles.colId}>{tc.id}</td>
-                <td className={styles.colCategory}>
-                  <span
-                    className={styles.categoryBadge}
-                    style={{
-                      background: getCategoryColor(tc.category) + '18',
-                      color: getCategoryColor(tc.category),
-                    }}
-                  >
-                    {tc.category}
-                  </span>
-                </td>
-                <td className={styles.colTitle}>{renderCell(tc, 'title')}</td>
-                <td className={styles.colPre}>{renderCell(tc, 'preconditions')}</td>
-                <td className={styles.colSteps}>{renderCell(tc, 'steps')}</td>
-                <td className={styles.colExpected}>{renderCell(tc, 'expected')}</td>
-                {/* ---- F23: 删除按钮 ---- */}
-                <td className={styles.colAction}>
-                  <button
-                    className={styles.deleteBtn}
-                    onClick={() => setDeleteTarget({ id: tc.id, title: tc.title })}
-                    title="删除此用例"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </td>
-              </tr>
+      {isEmpty ? (
+        <div className={styles.empty}>暂无测试用例数据</div>
+      ) : (
+        <>
+          {/* 分类筛选 Tab */}
+          <div className={styles.tabs}>
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                className={`${styles.tab} ${activeCategory === cat.key ? styles.tabActive : ''}`}
+                style={{ '--tab-color': cat.color, '--tab-bg': cat.color + '18' }}
+                onClick={() => { setActiveCategory(cat.key); setCurrentPage(1) }}
+              >
+                <Filter size={13} />
+                {cat.label}
+                {counts[cat.key] > 0 && <span className={styles.tabCount}>{counts[cat.key]}</span>}
+              </button>
             ))}
-          </tbody>
-        </table>
-
-        {filtered.length === 0 && (
-          <div className={styles.noResult}>该分类下暂无测试用例</div>
-        )}
-      </div>
-
-      {/* ---- 分页控件 ---- */}
-      {filtered.length > 0 && (
-        <div className={styles.pagination}>
-          <div className={styles.pageInfo}>
-            第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} 条，共 {filtered.length} 条
           </div>
-          <div className={styles.pageControls}>
-            <button
-              className={styles.pageBtn}
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              <ChevronLeft size={14} />
-            </button>
-            {renderPageNumbers(currentPage, totalPages, setCurrentPage, styles)}
-            <button
-              className={styles.pageBtn}
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              <ChevronRight size={14} />
-            </button>
+
+          {/* 表格 */}
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th className={styles.colId}>#</th>
+                  <th className={styles.colCategory}>分类</th>
+                  <th className={styles.colTitle}>测试标题</th>
+                  <th className={styles.colPre}>前置条件</th>
+                  <th className={styles.colSteps}>测试步骤</th>
+                  <th className={styles.colExpected}>预期结果</th>
+                  {/* ---- F23: 操作列 ---- */}
+                  <th className={styles.colAction}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {paged.map((tc) => (
+                  <tr key={tc.id}>
+                    <td className={styles.colId}>{tc.id}</td>
+                    <td className={styles.colCategory}>
+                      <span
+                        className={styles.categoryBadge}
+                        style={{
+                          background: getCategoryColor(tc.category) + '18',
+                          color: getCategoryColor(tc.category),
+                        }}
+                      >
+                        {tc.category}
+                      </span>
+                    </td>
+                    <td className={styles.colTitle}>{renderCell(tc, 'title')}</td>
+                    <td className={styles.colPre}>{renderCell(tc, 'preconditions')}</td>
+                    <td className={styles.colSteps}>{renderCell(tc, 'steps')}</td>
+                    <td className={styles.colExpected}>{renderCell(tc, 'expected')}</td>
+                    {/* ---- F23: 删除按钮 ---- */}
+                    <td className={styles.colAction}>
+                      <button
+                        className={styles.deleteBtn}
+                        onClick={() => setDeleteTarget({ id: tc.id, title: tc.title })}
+                        title="删除此用例"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filtered.length === 0 && (
+              <div className={styles.noResult}>该分类下暂无测试用例</div>
+            )}
           </div>
-          <select
-            className={styles.pageSizeSelect}
-            value={pageSize}
-            onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
-          >
-            {PAGE_SIZE_OPTIONS.map((n) => (
-              <option key={n} value={n}>{n} 条/页</option>
-            ))}
-          </select>
-        </div>
+
+          {/* ---- 分页控件 ---- */}
+          {filtered.length > 0 && (
+            <div className={styles.pagination}>
+              <div className={styles.pageInfo}>
+                第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filtered.length)} 条，共 {filtered.length} 条
+              </div>
+              <div className={styles.pageControls}>
+                <button
+                  className={styles.pageBtn}
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                {renderPageNumbers(currentPage, totalPages, setCurrentPage, styles)}
+                <button
+                  className={styles.pageBtn}
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+              <select
+                className={styles.pageSizeSelect}
+                value={pageSize}
+                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>{n} 条/页</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </>
       )}
 
       {/* ---- F22: 新增用例弹窗 ---- */}
