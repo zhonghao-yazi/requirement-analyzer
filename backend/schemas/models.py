@@ -10,6 +10,8 @@ class TestCase(BaseModel):
     """单条测试用例"""
     id: int = Field(..., description="序号")
     category: str = Field(..., description="分类：核心流程 | 边界值 | 安全性 | 稳定性")
+    priority: str = Field("P2", description="优先级：P0/P1/P2/P3")
+    status: str = Field("draft", description="状态：draft/reviewing/approved/deprecated")
     title: str = Field(..., description="测试标题")
     preconditions: str = Field("", description="前置条件")
     steps: str = Field(..., description="测试步骤")
