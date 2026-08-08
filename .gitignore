@@ -14,6 +14,8 @@ dist-ssr/
 
 # ===== 环境变量 =====
 .env
+.claude/settings.local.json
+.mcp.json
 .env.local
 .env.*.local
 
@@ -24,6 +26,7 @@ test-reports/
 *.screenshot.png
 *.video.webm
 .playwright-persistent/
+demo-screenshots/
 
 # ===== 编辑器 =====
 .vscode/*

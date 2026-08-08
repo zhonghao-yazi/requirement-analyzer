@@ -1,267 +1,178 @@
 ---
 name: playwright-test
-description: 运行并维护项目 Playwright E2E 自动化测试套件（42 个用例，覆盖上传、分析、表格、下载、错误处理等 10 大模块）
-model: haiku
+description: 运行并维护项目 Playwright E2E 自动化测试套件（21 个用例，覆盖认证、项目管理、文件分析、用例 CRUD、筛选下载 5 大模块）
+triggers:
+  - 用户说"跑测试" / "E2E" / "Playwright" / "自动化测试"
+  - 修改了前端组件或后端 API 后
+  - 用户要求验证功能是否正常
 ---
 
 # Playwright E2E 自动化测试 Skill
 
 ## 执行流程
 
-每次调用此 Skill 时，按以下步骤执行：
+```
+1. 检查前置条件
+   ├── MySQL 是否运行
+   ├── curl -s localhost:8000/api/health          # 后端
+   └── curl -s -o /dev/null -w "%{http_code}" localhost:5173  # 前端
 
-1. **检查前置条件** — 确认前端 `:5173` 和后端 `:8000` 服务在线
-2. **运行全部测试** — `npx playwright test`（config 中已配好 html + list + json 三路 reporter）
-3. **生成 Excel 报告** — `node scripts/generate-excel-report.mjs`，从 `test-reports/result.json` 读取结果，输出两个 Sheet：
-   - **Sheet1 "测试结果汇总"**：逐用例明细（序号、模块、用例名、总数、结果、耗时）
-   - **Sheet2 "按模块统计"**：模块级统计（用例数、通过、失败、跳过、通过率）
-   - 文件名格式：`test-reports/测试报告_YYYY-MM-DD_HH-mm-ss.xlsx`
-4. **向用户展示结果** — 在对话中输出模块级统计表
+2. npx playwright test（全量跑）
+
+3. 全部通过 → 输出统计，结束
+
+4. 有失败 → 先排除偶发抖动：
+   npx playwright test --last-failed --reporter=list
+   ├── 这次通过了 → 偶发（timing/网络波动），记录一下即可
+   └── 仍然失败 → 确认真 bug，进入步骤 5
+
+5. 定位根因，分三层排查（由浅入深）：
+
+   A. 读 test-results/*/error-context.md 的 Page snapshot
+      → 看失败瞬间页面实际渲染了什么（按钮在不在、文本对不对）
+      → 对照下方「错误签名 → 修复」表精准匹配
+
+   B. 若签名表无匹配 → 跑分层验证排除基础设施问题：
+      python verify_api.py          # API 层是否正常（14 项）
+      node verify-frontend.mjs      # 前端页面是否正常（7 项）
+      → 如果这两层也有失败，先修它们
+
+   C. 若分层验证全通过 → 可能是新引入的 bug：
+      读相关源代码理解逻辑 → 修复应用代码或测试脚本
+
+6. 修复后验证：
+   ├── 修的是应用代码 → npx playwright test --last-failed（确认 bug 被修复）
+   ├── 修的是测试脚本 → npx playwright test --last-failed（确认脚本正确）
+   └── 通过后 → 再跑一次全量，确保修复没有引入新问题
+
+7. 若以上都无法定位 → npx playwright test --ui 逐步单步调试
+```
 
 ## 概述
 
-本项目使用 Playwright 对「需求分析测试用例生成平台」进行全页面端到端自动化测试。
-测试通过 Chromium headless 浏览器执行，模拟真实用户操作：
+Playwright + Chromium headless 对「测试管理系统」全页面 E2E 测试，覆盖：
 
-- 页面加载与渲染验证
-- 文件上传（点击选择 + 拖拽）
-- 需求分析流程（上传 → loading → 结果展示）
-- 测试用例表格与分类筛选
-- Excel 下载 / 表格复制
-- 错误处理与边界情况
-- 流程图 SVG 渲染
+- 认证流程（登录/注册/登出/路由守卫/Token 持久化）
+- 项目管理（创建/进入/返回/删除/级联删除）
+- 文件上传与 AI 分析（需求分析 → 用例生成 → 数据库持久化）
+- 测试用例 CRUD（新增/编辑/删除，服务端持久化）
+- 分类筛选与下载（Tab 筛选、Excel 下载、表格复制）
 
 ## 项目文件
 
 | 文件 | 说明 |
 |------|------|
-| [playwright.config.js](../requirement-analyzer/playwright.config.js) | Playwright 配置（3 路 reporter：html + list + json） |
-| [tests/app.spec.js](../requirement-analyzer/tests/app.spec.js) | 42 个 E2E 测试用例 |
+| [playwright.config.js](../requirement-analyzer/playwright.config.js) | 配置（串行、单 worker、3 路 reporter） |
+| [tests/app.spec.js](../requirement-analyzer/tests/app.spec.js) | 21 个 E2E 测试用例 |
 | [tests/test-data/test_sample.txt](../requirement-analyzer/tests/test-data/test_sample.txt) | 测试用需求文件 |
-| [scripts/generate-excel-report.mjs](../requirement-analyzer/scripts/generate-excel-report.mjs) | JSON → Excel 报告生成脚本 |
-| [open-browser.mjs](../requirement-analyzer/open-browser.mjs) | 持久化 headed 浏览器脚本（手动调试用） |
-| [test-reports/](../requirement-analyzer/test-reports/) | 测试报告输出目录（JSON + Excel） |
+
+配置详情和测试数据内容直接从上述文件读取，不在此重复。
 
 ## 测试架构
 
 ```
-tests/app.spec.js
-├── 1. 页面加载与初始渲染 (6 个)
-│   ├── 1.1 页面标题正确
-│   ├── 1.2 Header 品牌区域
-│   ├── 1.3 上传区域默认提示
-│   ├── 1.4 格式标签
-│   ├── 1.5 初始空状态
-│   └── 1.6 结果区域初始隐藏
-├── 2. 文件上传功能 (6 个)
-│   ├── 2.1 点击上传
-│   ├── 2.2 文件大小显示
-│   ├── 2.3 清除按钮
-│   ├── 2.4 重置上传区
-│   ├── 2.5 拖拽上传
-│   └── 2.6 拖拽高亮
-├── 3. 分析流程 E2E (6 个)
-│   ├── 3.1 loading 状态
-│   ├── 3.2 需求摘要
-│   ├── 3.3 核心流程图
-│   ├── 3.4 测试用例表格
-│   ├── 3.5 下载操作栏
-│   └── 3.6 加载中隐藏结果
-├── 4. 测试用例表格 (7 个)
-│   ├── 4.1 多分类展示
-│   ├── 4.2 默认"全部"Tab
-│   ├── 4.3 分类筛选
-│   ├── 4.4 切换分类
-│   ├── 4.5 Tab 计数
-│   ├── 4.6 行完整性
-│   └── 4.7 分类徽章颜色
-├── 5. Excel 下载 (3 个)
-├── 6. 复制表格 (1 个)
-├── 7. 错误处理与边界 (6 个)
-├── 8. 页面交互 (3 个)
-├── 9. FlowChart (3 个)
-└── 10. 综合场景 (1 个)
+tests/app.spec.js（21 个用例）
+├── 1. Auth           (7 个) — 登录/注册/登出/路由守卫/错误提示/JS 异常
+├── 2. Projects       (4 个) — 创建/进入/返回/删除
+├── 3. Analyze        (3 个) — 上传分析/摘要展示/不支持格式
+├── 4. TestCase CRUD  (3 个) — 新增/双击编辑/删除
+└── 5. Filter & Download (4 个) — 分类筛选/Excel 下载/复制表格
 ```
 
-## 前置条件
-
-1. **前端服务**：`http://localhost:5173`（Vite dev server）
-2. **后端服务**：`http://localhost:8000`（FastAPI）
-
-### 启动服务
+## 前置条件 & 启动
 
 ```bash
-# 后端
-cd backend
-python main.py &
+# 后端（端口 8000）
+cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000
 
-# 前端
-cd requirement-analyzer
-npx vite --host 0.0.0.0 &
+# 前端（端口 5173）
+cd requirement-analyzer && npx vite --host 0.0.0.0
 ```
 
-## 执行测试
+需要 MySQL 运行且 `test_management` 库已初始化（`mysql -u root -proot < backend/init_db.sql`）。
 
-### 运行全部测试
+## 关键设计模式
 
-```bash
-cd requirement-analyzer
-npx playwright test
-```
-
-### 运行指定模块
-
-```bash
-npx playwright test --grep "文件上传"
-npx playwright test --grep "分析流程"
-npx playwright test --grep "Excel 下载"
-npx playwright test --grep "综合场景"
-```
-
-### headed 模式（可见浏览器）
-
-```bash
-npx playwright test --headed
-```
-
-### UI 模式（交互式调试）
-
-```bash
-npx playwright test --ui
-```
-
-### 查看 HTML 报告
-
-```bash
-npx playwright show-report
-```
-
-### 生成测试代码（录制）
-
-```bash
-npx playwright codegen http://localhost:5173
-```
-
-## 关键设计说明
-
-### CSS Modules 兼容
-
-项目使用 CSS Modules，类名为 `_className_hash` 格式。测试优先使用语义选择器：
+### 认证：全局注册 + beforeEach 登录
 
 ```javascript
-// ✅ 推荐：语义选择器
-page.getByRole('heading', { name: '测试用例', exact: true })
+// test.beforeAll 注册一次 e2e_tester（已存在则忽略错误）
+// 每个 describe 的 beforeEach 调用 doLogin(page) 确保已认证
+
+async function doLogin(page) {
+  await page.goto('/login')
+  await page.locator('input[type="text"]').fill(USER.username)
+  await page.locator('input[type="password"]').fill(USER.password)
+  await page.locator('button[type="submit"]').click()
+  await page.waitForURL('**/projects', { timeout: 8000 })
+}
+```
+
+### 项目：createAndEnter 一键进入分析页
+
+```javascript
+// 创建项目 → 等待 h3 出现 → 点击进入 → 等待 URL 跳转
+// 关键：用 waitForSelector('h3') 而非固定 waitForTimeout，避免 API 慢导致 timeout
+```
+
+### 选择器优先级
+
+```javascript
+// ✅ 语义选择器
 page.getByRole('button', { name: /下载 Excel/ })
-page.locator('th').filter({ hasText: '测试标题' })
+page.getByText(/用户名或密码错误/)
+page.locator('button[title="删除此用例"]')
 
-// ⚠️ 可用但需注意：CSS Modules 类名包含原类名作为子串
+// ⚠️ CSS Modules 子串匹配 — 仅在无更好选择器时使用
 page.locator('[class*="dropzone"]')
-page.locator('[class*="nodeLabel"]')
 
-// ❌ 避免：硬编码完整 CSS 类名
-page.locator('._dropzone_abc123')
+// ❌ 硬编码 hashed class
 ```
 
 ### 等待模式
 
 ```javascript
-// 等待分析完成
-async function waitForResults(page) {
-  await page.locator('h2').first().waitFor({ state: 'visible', timeout: 30000 })
-  await page.waitForFunction(() => {
-    return !document.body.innerText.includes('正在解析文件，AI 分析需求内容...')
-  }, { timeout: 30000 }).catch(() => {})
-}
+await page.waitForSelector('table', { timeout: 30000 })    // 分析完成
+await page.waitForURL('**/projects', { timeout: 8000 })     // 页面跳转
+await page.waitForSelector('h3', { timeout: 10000 })        // 项目卡片出现
 ```
 
-### 文件上传
+## 错误签名 → 修复
 
-```javascript
-// 通过 input[type="file"] 上传（最可靠）
-const fileInput = page.locator('input[type="file"]')
-await fileInput.setInputFiles(testFile('test_sample.txt'))
+| 错误签名 | 根因 | 修复文件 | 具体操作 |
+|----------|------|----------|----------|
+| `waiting for getByText(/用户名或密码错误/)` | 后端 login 返回 401 被 apiClient 的 401 拦截器吃掉，显示"登录已过期" | `routers/auth.py` / `services/apiClient.js` | auth.py login 返回 `status_code=400`；apiClient 排除 `/api/auth/login` 的 401 跳转 |
+| `waiting for button { hasText: '添加' }` | AnalysisPage 空状态时未渲染 TestCaseTable 组件 | `pages/AnalysisPage.jsx` | 空状态分支也渲染 TestCaseTable |
+| `waiting for input[placeholder*="测试标题"]` | 添加按钮找到了但模态框未弹出 | `components/TestCaseTable/TestCaseTable.jsx` | 检查 showAddModal 状态和模态框渲染条件 |
+| `Test timeout in createAndEnter` at `h3.click()` | 项目 API 返回慢，600ms 后 h3 还未渲染 | `tests/app.spec.js` | 改用 `waitForSelector('h3')` |
+| 所有认证测试失败 | 后端离线 / MySQL 离线 / e2e_tester 不存在 | — | 检查服务状态，运行 `verify_api.py` |
+| 上传分析失败 | AI API 不可用且规则引擎未回退 | `services/ai_analyzer.py` | 检查 `ANTHROPIC_API_KEY` 环境变量 |
 
-// 拖拽上传
-const dropzone = page.locator('[class*="dropzone"]')
-await dropzone.evaluate((node) => {
-  const file = new File(['内容...'], 'test.txt', { type: 'text/plain' })
-  const dt = new DataTransfer()
-  dt.items.add(file)
-  node.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true }))
-})
-```
-
-## 测试数据
-
-测试文件位置：`tests/test-data/test_sample.txt`
-
-```markdown
-# 密码重置功能需求
-## 功能描述
-用户忘记密码后可通过邮箱验证码重置密码。
-## 详细需求
-1. 用户在登录页点击"忘记密码"进入重置流程
-2. 输入注册邮箱，系统发送6位数字验证码到邮箱
-3. 验证码有效期5分钟，超时需重新获取
-...
-```
-
-## 配置说明
-
-```javascript
-// playwright.config.js
-export default defineConfig({
-  testDir: './tests',
-  fullyParallel: false,       // 串行执行（避免状态干扰）
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,                 // 单 worker
-  timeout: 60000,
-  expect: { timeout: 15000 },
-  use: {
-    baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-  },
-  reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['list'],
-    ['json', { outputFile: 'test-reports/result.json' }],
-  ],
-})
-```
-
-## 维护指南
-
-### 新增测试用例
-
-1. 在 `tests/app.spec.js` 中找到对应的 `test.describe` 块
-2. 添加新的 `test()` 函数
-3. 参考已有测试的选择器风格（优先语义选择器）
-4. 运行 `npx playwright test --grep "新测试名"` 验证
-
-### 调试失败的测试
+## 调试命令速查
 
 ```bash
-# 只看失败的测试
-npx playwright test --reporter=list 2>&1 | grep -A 30 "failed"
+npx playwright test                          # 全量
+npx playwright test --grep "Auth"            # 按模块
+npx playwright test --last-failed            # 仅失败项
+npx playwright test --headed                 # 可见浏览器
+npx playwright test --ui                     # 交互调试
+npx playwright show-report                   # HTML 报告
 
-# UI 模式逐步调试
-npx playwright test --ui
-
-# 只运行失败项
-npx playwright test --last-failed
+# 配套验证（E2E 失败时先跑这两项定位层级）
+cd backend && python verify_api.py           # 14 项 API
+cd requirement-analyzer && node verify-frontend.mjs  # 7 项 UI
 ```
 
-### 添加页面变更后的选择器更新
+## 新增测试用例
 
-1. 先查看截图：`playwright-report/` 目录中的失败截图
-2. 用 semantic 选择器替换失效的 class 选择器
-3. 如果新组件缺少明确的语义标记，考虑在源代码中添加 `aria-label` 或 `data-testid`
+1. 在 `tests/app.spec.js` 对应 `test.describe` 块中添加 `test()`
+2. 复用 `doLogin(page)` / `createAndEnter(page, prefix)` helper
+3. 选择器优先级：`getByRole` > `getByText` > `[title]` > `[placeholder*]` > `[class*]`
+4. `npx playwright test --grep "新测试名"` 验证通过后再跑全量
 
 ## 已知限制
 
-- 拖拽上传测试使用 `evaluate()` 模拟 DOM 事件，可能无法完全覆盖 React 事件系统的所有行为
-- `canvas` / SVG 内部元素交互待补充
-- 尚未测试移动端响应式布局
-- 不包含后端 API 的独立单元测试
+- 拖拽上传用 `evaluate()` 模拟 DOM 事件，不一定覆盖 React 事件系统所有行为
+- 后端 API 独立测试由 `verify_api.py`（14 项）覆盖，不在此 Skill 范围内
+- 无前端单元/组件测试，无移动端响应式测试
+- `config.webServer` 仅在 CI 环境自动启动，本地需手动启服务
