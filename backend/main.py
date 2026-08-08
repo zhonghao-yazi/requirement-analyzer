@@ -1,17 +1,21 @@
-"""需求分析测试用例生成平台 — 后端服务入口"""
+"""测试管理系统 — 后端服务入口"""
 
 import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from database import init_db
 from routers.analyze import router as analyze_router
+from routers.auth import router as auth_router
+from routers.projects import router as projects_router
+from routers.testcases import router as testcases_router
 
 # 创建 FastAPI 应用
 app = FastAPI(
-    title="需求分析测试用例生成 API",
-    description="上传需求文件，AI 自动分析并生成测试用例",
-    version="1.0.0",
+    title="测试管理系统 API",
+    description="需求分析、测试用例管理、测试计划与执行追踪",
+    version="2.0.0",
 )
 
 # CORS — 允许前端跨域访问
@@ -30,6 +34,17 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(analyze_router)
+app.include_router(auth_router)
+app.include_router(projects_router)
+app.include_router(testcases_router)
+
+
+# ===== 启动事件 =====
+
+@app.on_event("startup")
+def on_startup():
+    """应用启动时初始化数据库表"""
+    init_db()
 
 
 # ===== 启动入口 =====
