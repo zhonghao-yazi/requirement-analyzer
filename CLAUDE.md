@@ -84,7 +84,7 @@ requirement-analyzer/          # 前端项目根目录（Vite + React）
 │       ├── excelExport.js     # Excel 导出
 │       └── constants.js       # 文件类型配置
 ├── tests/
-│   ├── app.spec.js            # Playwright E2E（21用例）
+│   ├── app.spec.js            # Playwright E2E（42用例）
 │   └── test-data/             # 测试用需求文件
 └── scripts/
 
@@ -176,6 +176,7 @@ npx vite --host 0.0.0.0
 |-------|------|------|
 | Playwright 测试 | [.claude/skills/playwright-test.md](.claude/skills/playwright-test.md) | 运行及维护 E2E 自动化测试（21 用例，5 模块） |
 | 浏览器演示 | [.claude/skills/browser-demo.md](.claude/skills/browser-demo.md) | 浏览器实时演示核心功能（项目浏览/筛选/添加/下载） |
+| GitHub 同步 | [.claude/skills/github-sync.md](.claude/skills/github-sync.md) | 一键推送本地代码变更到 GitHub（API 通道） |
 
 ## API 端点
 
